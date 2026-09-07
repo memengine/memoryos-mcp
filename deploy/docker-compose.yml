@@ -1,0 +1,15 @@
+services:
+  memoryos-mcp:
+    build:
+      context: ..
+    environment:
+      MEMORYOS_API_URL: ${MEMORYOS_API_URL:-https://api.memoryo.dev}
+      MEMORYOS_API_KEY: ${MEMORYOS_API_KEY:?set MEMORYOS_API_KEY in your environment}
+      MEMORYOS_MCP_TRANSPORT: streamable-http
+      MEMORYOS_MCP_EXPOSURE: private
+      MEMORYOS_MCP_HOST: 0.0.0.0
+      MEMORYOS_MCP_PORT: 8080
+      MEMORYOS_MCP_HTTP_PATH: /mcp
+    ports:
+      - "127.0.0.1:8080:8080"
+    restart: unless-stopped
