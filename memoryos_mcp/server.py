@@ -158,7 +158,7 @@ def _log_public_token_diagnostics(token: str) -> None:
     """Log safe token-verification facts without ever recording a credential."""
     parts = token.split(".")
     if len(parts) != 3:
-        _log_event("public_token_diagnostics", token_kind="non_jwt")
+        LOGGER.warning(json.dumps({"event": "public_token_diagnostics", "token_kind": "non_jwt"}))
         return
 
     try:
@@ -175,17 +175,22 @@ def _log_public_token_diagnostics(token: str) -> None:
             audience = sorted(str(value) for value in audience)
         elif audience is not None:
             audience = str(audience)
-        _log_event(
-            "public_token_diagnostics",
-            token_kind="jwt",
-            algorithm=header.get("alg"),
-            issuer=claims.get("iss"),
-            audience=audience,
-            has_org_id=bool(str(claims.get("org_id", "")).strip()),
-            has_subject=bool(str(claims.get("sub", "")).strip()),
+        LOGGER.warning(
+            json.dumps(
+                {
+                    "event": "public_token_diagnostics",
+                    "token_kind": "jwt",
+                    "algorithm": header.get("alg"),
+                    "issuer": claims.get("iss"),
+                    "audience": audience,
+                    "has_org_id": bool(str(claims.get("org_id", "")).strip()),
+                    "has_subject": bool(str(claims.get("sub", "")).strip()),
+                },
+                sort_keys=True,
+            )
         )
     except (UnicodeDecodeError, ValueError, json.JSONDecodeError):
-        _log_event("public_token_diagnostics", token_kind="unreadable_jwt")
+        LOGGER.warning(json.dumps({"event": "public_token_diagnostics", "token_kind": "unreadable_jwt"}))
 
 
 def _build_mcp_auth() -> Any | None:

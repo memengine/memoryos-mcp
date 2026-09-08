@@ -87,17 +87,21 @@ class MemoryOSLocalLogicTests(unittest.TestCase):
                 "signature-is-never-logged",
             )
         )
-        with patch("memoryos_mcp.server._log_event") as log_event:
+        with patch("memoryos_mcp.server.LOGGER.warning") as log_warning:
             _log_public_token_diagnostics(token)
 
-        log_event.assert_called_once_with(
-            "public_token_diagnostics",
-            token_kind="jwt",
-            algorithm="RS256",
-            issuer="https://clerk.example.com",
-            audience="mcp-client-id",
-            has_org_id=True,
-            has_subject=True,
+        log_warning.assert_called_once()
+        self.assertEqual(
+            json.loads(log_warning.call_args.args[0]),
+            {
+                "event": "public_token_diagnostics",
+                "token_kind": "jwt",
+                "algorithm": "RS256",
+                "issuer": "https://clerk.example.com",
+                "audience": "mcp-client-id",
+                "has_org_id": True,
+                "has_subject": True,
+            },
         )
 
     def test_raw_request_blocks_non_memoryos_paths(self) -> None:
