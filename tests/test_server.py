@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import base64
 import json
 import os
 import unittest
@@ -13,6 +14,7 @@ from memoryos_mcp.server import MemoryOSAPIError
 from memoryos_mcp.server import MemoryOSClient
 from memoryos_mcp.server import _build_mcp_auth
 from memoryos_mcp.server import _http_server_config
+from memoryos_mcp.server import _log_public_token_diagnostics
 from memoryos_mcp.server import main
 from memoryos_mcp.server import mcp
 from memoryos_mcp.server import memoryos_create_consent_url
@@ -65,6 +67,37 @@ class MemoryOSLocalLogicTests(unittest.TestCase):
             {
                 "consent_url": "https://consent.example.com/consent?agent_id=agent_123&redirect_uri=https%3A%2F%2Fexample.com%2Fcallback&state=abc"
             },
+        )
+
+    def test_public_token_diagnostics_logs_claim_metadata_not_token(self) -> None:
+        def encode(payload: dict[str, object]) -> str:
+            return base64.urlsafe_b64encode(json.dumps(payload).encode()).decode().rstrip("=")
+
+        token = ".".join(
+            (
+                encode({"alg": "RS256"}),
+                encode(
+                    {
+                        "iss": "https://clerk.example.com",
+                        "aud": "mcp-client-id",
+                        "org_id": "org_private",
+                        "sub": "user_private",
+                    }
+                ),
+                "signature-is-never-logged",
+            )
+        )
+        with patch("memoryos_mcp.server._log_event") as log_event:
+            _log_public_token_diagnostics(token)
+
+        log_event.assert_called_once_with(
+            "public_token_diagnostics",
+            token_kind="jwt",
+            algorithm="RS256",
+            issuer="https://clerk.example.com",
+            audience="mcp-client-id",
+            has_org_id=True,
+            has_subject=True,
         )
 
     def test_raw_request_blocks_non_memoryos_paths(self) -> None:

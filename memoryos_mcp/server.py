@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import base64
 import json
 import logging
 import os
@@ -153,6 +154,40 @@ def _public_caller_bearer_token() -> str | None:
     return token
 
 
+def _log_public_token_diagnostics(token: str) -> None:
+    """Log safe token-verification facts without ever recording a credential."""
+    parts = token.split(".")
+    if len(parts) != 3:
+        _log_event("public_token_diagnostics", token_kind="non_jwt")
+        return
+
+    try:
+        def _decode(segment: str) -> dict[str, Any]:
+            padding = "=" * (-len(segment) % 4)
+            value = base64.urlsafe_b64decode(f"{segment}{padding}")
+            payload = json.loads(value.decode("utf-8"))
+            return payload if isinstance(payload, dict) else {}
+
+        header = _decode(parts[0])
+        claims = _decode(parts[1])
+        audience = claims.get("aud")
+        if isinstance(audience, list):
+            audience = sorted(str(value) for value in audience)
+        elif audience is not None:
+            audience = str(audience)
+        _log_event(
+            "public_token_diagnostics",
+            token_kind="jwt",
+            algorithm=header.get("alg"),
+            issuer=claims.get("iss"),
+            audience=audience,
+            has_org_id=bool(str(claims.get("org_id", "")).strip()),
+            has_subject=bool(str(claims.get("sub", "")).strip()),
+        )
+    except (UnicodeDecodeError, ValueError, json.JSONDecodeError):
+        _log_event("public_token_diagnostics", token_kind="unreadable_jwt")
+
+
 def _build_mcp_auth() -> Any | None:
     """Configure inbound MCP authentication without ever reusing tenant API keys."""
     mode = os.getenv("MEMORYOS_MCP_AUTH_MODE", "none").strip().lower()
@@ -265,6 +300,8 @@ class MemoryOSClient:
         idempotency_key: str | None = None,
     ) -> Any:
         public_bearer = _public_caller_bearer_token()
+        if public_bearer:
+            _log_public_token_diagnostics(public_bearer)
         is_public_universal = bool(public_bearer and universal_capability)
         if public_bearer and not is_public_universal and not _public_tenant_request_allowed(method, path):
             raise PermissionError(
