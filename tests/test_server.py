@@ -80,6 +80,7 @@ class MemoryOSLocalLogicTests(unittest.TestCase):
                     {
                         "iss": "https://clerk.example.com",
                         "aud": "mcp-client-id",
+                        "azp": "mcp-client-id",
                         "org_id": "org_private",
                         "sub": "user_private",
                     }
@@ -99,6 +100,7 @@ class MemoryOSLocalLogicTests(unittest.TestCase):
                 "algorithm": "RS256",
                 "issuer": "https://clerk.example.com",
                 "audience": "mcp-client-id",
+                "authorized_party": "mcp-client-id",
                 "has_org_id": True,
                 "has_subject": True,
             },

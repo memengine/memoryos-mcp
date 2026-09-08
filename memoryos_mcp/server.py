@@ -183,6 +183,7 @@ def _log_public_token_diagnostics(token: str) -> None:
                     "algorithm": header.get("alg"),
                     "issuer": claims.get("iss"),
                     "audience": audience,
+                    "authorized_party": claims.get("azp"),
                     "has_org_id": bool(str(claims.get("org_id", "")).strip()),
                     "has_subject": bool(str(claims.get("sub", "")).strip()),
                 },
