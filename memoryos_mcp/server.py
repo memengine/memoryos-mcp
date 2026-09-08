@@ -31,6 +31,7 @@ ALLOWED_RAW_METHODS = frozenset({"GET", "POST", "PATCH", "DELETE"})
 HTTP_TRANSPORTS = frozenset({"http", "streamable-http", "sse"})
 MCP_EXPOSURES = frozenset({"private", "public"})
 AUTH_MODES = frozenset({"none", "clerk"})
+CLERK_TENANT_SCOPES = ["openid", "email", "profile", "user:org:read"]
 LOGGER = logging.getLogger(SERVER_NAME)
 
 # A public gateway intentionally starts with a small, capability-safe surface.
@@ -179,6 +180,8 @@ def _build_mcp_auth() -> Any | None:
         resource_base_url=_required_environment("MEMORYOS_MCP_PUBLIC_BASE_URL").rstrip("/"),
         jwt_signing_key=_required_environment("MEMORYOS_MCP_AUTH_SIGNING_KEY"),
         allowed_client_redirect_uris=redirect_uris,
+        required_scopes=CLERK_TENANT_SCOPES,
+        valid_scopes=CLERK_TENANT_SCOPES,
     )
 
 

@@ -339,6 +339,8 @@ class MemoryOSHttpTransportTests(unittest.TestCase):
                 "https://client.example/callback",
                 "https://other.example/callback",
             ],
+            required_scopes=["openid", "email", "profile", "user:org:read"],
+            valid_scopes=["openid", "email", "profile", "user:org:read"],
         )
 
         with patch.dict(
