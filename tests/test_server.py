@@ -23,6 +23,9 @@ from memoryos_mcp.server import memoryos_my_context
 from memoryos_mcp.server import memoryos_my_memories
 from memoryos_mcp.server import memoryos_remember
 from memoryos_mcp.server import memoryos_session_context
+from memoryos_mcp.server import memoryos_why_memory
+from memoryos_mcp.server import memoryos_correct_memory
+from memoryos_mcp.server import memoryos_forget_memory
 from memoryos_mcp.server import memoryos_universal_add_memory
 from memoryos_mcp.server import memoryos_api_request
 from memoryos_mcp.server import memoryos_mcp_healthz
@@ -44,6 +47,9 @@ class MemoryOSToolRegistrationTests(unittest.TestCase):
         self.assertIn("memoryos_my_memories", names)
         self.assertIn("memoryos_remember", names)
         self.assertIn("memoryos_session_context", names)
+        self.assertIn("memoryos_why_memory", names)
+        self.assertIn("memoryos_correct_memory", names)
+        self.assertIn("memoryos_forget_memory", names)
         self.assertIn("memoryos_delete_memory", names)
         self.assertIn("memoryos_get_billing_subscription", names)
         self.assertIn("memoryos_api_request", names)
@@ -135,6 +141,9 @@ class MemoryOSLocalLogicTests(unittest.TestCase):
             memoryos_my_memories(limit=3)
             memoryos_remember(messages=[{"role": "user", "content": "Remember this."}])
             memoryos_session_context()
+            memoryos_why_memory("memory-1")
+            memoryos_correct_memory("memory-1", "Corrected preference")
+            memoryos_forget_memory("memory-1")
 
         calls = request.call_args_list
         self.assertEqual(calls[0].args[:2], ("POST", "/v1/mcp/tenant/context"))
@@ -142,6 +151,9 @@ class MemoryOSLocalLogicTests(unittest.TestCase):
         self.assertEqual(calls[2].args[:2], ("POST", "/v1/mcp/tenant/remember"))
         self.assertEqual(calls[3].args[:2], ("POST", "/v1/mcp/tenant/session-context"))
         self.assertEqual(calls[3].kwargs["json_body"], {"context_max_tokens": 180})
+        self.assertEqual(calls[4].args[:2], ("GET", "/v1/mcp/tenant/memories/memory-1/why"))
+        self.assertEqual(calls[5].args[:2], ("POST", "/v1/mcp/tenant/memories/memory-1/correct"))
+        self.assertEqual(calls[6].args[:2], ("DELETE", "/v1/mcp/tenant/memories/memory-1"))
         for call in calls:
             self.assertNotIn("external_user_id", call.kwargs.get("json_body", {}))
             self.assertNotIn("external_user_id", call.kwargs.get("params", {}))

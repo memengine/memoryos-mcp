@@ -43,6 +43,9 @@ PUBLIC_TENANT_REQUESTS = frozenset(
         ("POST", "/v1/mcp/tenant/context"),
         ("POST", "/v1/mcp/tenant/session-context"),
         ("GET", "/v1/mcp/tenant/memories"),
+        ("GET", "/v1/mcp/tenant/memories/{memory_id}/why"),
+        ("POST", "/v1/mcp/tenant/memories/{memory_id}/correct"),
+        ("DELETE", "/v1/mcp/tenant/memories/{memory_id}"),
         ("GET", "/v1/billing/plans"),
         ("GET", "/v1/billing/subscription"),
     }
@@ -126,6 +129,13 @@ def _public_tenant_request_allowed(method: str, path: str) -> bool:
     """Return whether a public MCP caller may invoke this tenant API route."""
     if (method, path) in PUBLIC_TENANT_REQUESTS:
         return True
+    if path.startswith("/v1/mcp/tenant/memories/"):
+        memory_path = path.removeprefix("/v1/mcp/tenant/memories/")
+        return bool(memory_path) and (
+            (method == "GET" and memory_path.endswith("/why"))
+            or (method == "POST" and memory_path.endswith("/correct"))
+            or (method == "DELETE" and "/" not in memory_path)
+        )
     # The detail, history, list, and job-status reads are tenant-isolated by
     # the API. No tenant, user, or organisation identifier is accepted here.
     return method == "GET" and (
@@ -562,6 +572,28 @@ def memoryos_my_memories(
     if categories:
         params["categories"] = categories
     return _client.request("GET", "/v1/mcp/tenant/memories", params=params)
+
+
+@mcp.tool()
+def memoryos_why_memory(memory_id: str) -> Any:
+    """Explain the self-owned memory's source and confidence for the signed-in user."""
+    return _client.request("GET", f"/v1/mcp/tenant/memories/{memory_id}/why")
+
+
+@mcp.tool()
+def memoryos_correct_memory(memory_id: str, content: str) -> Any:
+    """Correct a self-owned memory. Never accepts a user ID or cross-user scope."""
+    return _client.request(
+        "POST",
+        f"/v1/mcp/tenant/memories/{memory_id}/correct",
+        json_body={"content": content},
+    )
+
+
+@mcp.tool()
+def memoryos_forget_memory(memory_id: str) -> Any:
+    """Recoverably archive a self-owned memory for the signed-in user."""
+    return _client.request("DELETE", f"/v1/mcp/tenant/memories/{memory_id}")
 
 
 @mcp.tool()

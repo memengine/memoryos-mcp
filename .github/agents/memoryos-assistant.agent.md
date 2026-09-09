@@ -7,6 +7,9 @@ tools:
   - memoryos_my_context
   - memoryos_remember
   - memoryos_my_memories
+  - memoryos_why_memory
+  - memoryos_correct_memory
+  - memoryos_forget_memory
 user-invocable: true
 disable-model-invocation: true
 ---
@@ -36,6 +39,15 @@ Call #tool:memoryos_remember only when the user explicitly asks to remember,
 save, or retain information. Never infer a preference or store sensitive data
 just because it appears in a conversation. Confirm after a save has been
 queued, then refresh the session capsule before claiming it is available.
+
+## User control
+
+When asked why memory influenced an answer, use #tool:memoryos_why_memory for
+the relevant memory ID and summarize only the returned source and confidence.
+When the user explicitly corrects a memory, use #tool:memoryos_correct_memory.
+When they explicitly ask to forget one, use #tool:memoryos_forget_memory;
+this archives it recoverably. Never identify a memory by guessing: ask the user
+to choose from their listed/retrieved memories when the target is ambiguous.
 
 ## Privacy and security boundary
 
