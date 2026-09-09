@@ -19,6 +19,9 @@ from memoryos_mcp.server import memoryos_create_consent_url
 from memoryos_mcp.server import memoryos_add_memory
 from memoryos_mcp.server import memoryos_get_billing_subscription
 from memoryos_mcp.server import memoryos_get_context
+from memoryos_mcp.server import memoryos_my_context
+from memoryos_mcp.server import memoryos_my_memories
+from memoryos_mcp.server import memoryos_remember
 from memoryos_mcp.server import memoryos_universal_add_memory
 from memoryos_mcp.server import memoryos_api_request
 from memoryos_mcp.server import memoryos_mcp_healthz
@@ -36,6 +39,9 @@ class MemoryOSToolRegistrationTests(unittest.TestCase):
         self.assertIn("memoryos_add_memory", names)
         self.assertIn("memoryos_get_context", names)
         self.assertIn("memoryos_list_memories", names)
+        self.assertIn("memoryos_my_context", names)
+        self.assertIn("memoryos_my_memories", names)
+        self.assertIn("memoryos_remember", names)
         self.assertIn("memoryos_delete_memory", names)
         self.assertIn("memoryos_get_billing_subscription", names)
         self.assertIn("memoryos_api_request", names)
@@ -119,7 +125,29 @@ class MemoryOSLocalLogicTests(unittest.TestCase):
                 as_of="2026-08-01T12:00:00Z",
             )
 
-        self.assertEqual(request.call_args.kwargs["json_body"]["as_of"], "2026-08-01T12:00:00Z")
+            self.assertEqual(request.call_args.kwargs["json_body"]["as_of"], "2026-08-01T12:00:00Z")
+
+    def test_self_scoped_tools_never_accept_external_user_id(self) -> None:
+        with patch("memoryos_mcp.server._client.request", return_value={"data": []}) as request:
+            memoryos_my_context(query="What do I prefer?")
+            memoryos_my_memories(limit=3)
+            memoryos_remember(messages=[{"role": "user", "content": "Remember this."}])
+
+        calls = request.call_args_list
+        self.assertEqual(calls[0].args[:2], ("POST", "/v1/mcp/tenant/context"))
+        self.assertEqual(calls[1].args[:2], ("GET", "/v1/mcp/tenant/memories"))
+        self.assertEqual(calls[2].args[:2], ("POST", "/v1/mcp/tenant/remember"))
+        for call in calls:
+            self.assertNotIn("external_user_id", call.kwargs.get("json_body", {}))
+            self.assertNotIn("external_user_id", call.kwargs.get("params", {}))
+
+    def test_public_generic_identity_tools_fail_closed(self) -> None:
+        with patch.dict(os.environ, {"MEMORYOS_MCP_EXPOSURE": "public"}):
+            with self.assertRaises(PermissionError):
+                memoryos_add_memory(
+                    external_user_id="someone-else",
+                    messages=[{"role": "user", "content": "Not allowed publicly."}],
+                )
 
     def test_billing_subscription_uses_authenticated_tenant_contract(self) -> None:
         with patch(

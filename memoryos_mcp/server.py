@@ -42,6 +42,9 @@ PUBLIC_TENANT_REQUESTS = frozenset(
         ("GET", "/v1/memories"),
         ("POST", "/v1/memories/add"),
         ("POST", "/v1/memories/retrieve"),
+        ("POST", "/v1/mcp/tenant/remember"),
+        ("POST", "/v1/mcp/tenant/context"),
+        ("GET", "/v1/mcp/tenant/memories"),
         ("GET", "/v1/billing/plans"),
         ("GET", "/v1/billing/subscription"),
     }
@@ -131,6 +134,15 @@ def _public_tenant_request_allowed(method: str, path: str) -> bool:
         path.startswith("/v1/memories/")
         or path == "/v1/memories"
     )
+
+
+def _reject_public_generic_identity_tool() -> None:
+    """Keep public callers on self-scoped tools, never caller-selected identities."""
+    if _mcp_exposure() == "public":
+        raise PermissionError(
+            "This public MCP tool requires a caller-selected external_user_id. "
+            "Use the self-scoped memoryos_my_* tools instead."
+        )
 
 
 def _public_caller_bearer_token() -> str | None:
@@ -418,6 +430,7 @@ def memoryos_add_memory(
 ) -> Any:
     """Queue tenant-scoped conversation messages for MemoryOS extraction.
     Uses the workspace's configured general or domain schema."""
+    _reject_public_generic_identity_tool()
     body: dict[str, Any] = {
         "external_user_id": external_user_id,
         "messages": messages,
@@ -447,6 +460,7 @@ def memoryos_get_context(
 ) -> Any:
     """Retrieve prompt-ready memory context for a tenant-scoped user.
     Domain schema context is included by the MemoryOS backend when enabled."""
+    _reject_public_generic_identity_tool()
     body: dict[str, Any] = {
         "external_user_id": external_user_id,
         "query": query,
@@ -476,6 +490,7 @@ def memoryos_list_memories(
     agent_id: str | None = None,
 ) -> Any:
     """List tenant-scoped memories for a user."""
+    _reject_public_generic_identity_tool()
     params: dict[str, Any] = {
         "external_user_id": external_user_id,
         "limit": limit,
@@ -490,8 +505,61 @@ def memoryos_list_memories(
 
 
 @mcp.tool()
+def memoryos_remember(
+    messages: list[dict],
+    metadata: dict | None = None,
+    idempotency_key: str | None = None,
+) -> Any:
+    """Remember this conversation for the signed-in user, without requiring a user ID."""
+    return _client.request(
+        "POST",
+        "/v1/mcp/tenant/remember",
+        json_body={"messages": messages, "metadata": metadata or {}},
+        idempotency_key=idempotency_key,
+    )
+
+
+@mcp.tool()
+def memoryos_my_context(
+    query: str,
+    limit: int = 10,
+    categories: list[str] | None = None,
+    format: str = "bullets",
+    context_max_tokens: int = 500,
+) -> Any:
+    """Get prompt-ready MemoryOS context for the signed-in user before answering."""
+    return _client.request(
+        "POST",
+        "/v1/mcp/tenant/context",
+        json_body={
+            "query": query,
+            "limit": limit,
+            "categories": categories or [],
+            "format": format,
+            "context_max_tokens": context_max_tokens,
+        },
+    )
+
+
+@mcp.tool()
+def memoryos_my_memories(
+    cursor: str | None = None,
+    limit: int = 10,
+    categories: list[str] | None = None,
+) -> Any:
+    """List memories belonging only to the signed-in user."""
+    params: dict[str, Any] = {"limit": limit}
+    if cursor is not None:
+        params["cursor"] = cursor
+    if categories:
+        params["categories"] = categories
+    return _client.request("GET", "/v1/mcp/tenant/memories", params=params)
+
+
+@mcp.tool()
 def memoryos_get_memory(memory_id: str) -> Any:
     """Fetch one memory by id."""
+    _reject_public_generic_identity_tool()
     return _client.request("GET", f"/v1/memories/{memory_id}")
 
 
@@ -503,6 +571,7 @@ def memoryos_update_memory(
     is_archived: bool | None = None,
 ) -> Any:
     """Update memory content, importance, or archived state."""
+    _reject_public_generic_identity_tool()
     body = {
         k: v
         for k, v in {
@@ -518,6 +587,7 @@ def memoryos_update_memory(
 @mcp.tool()
 def memoryos_delete_memory(memory_id: str, hard_delete: bool = False) -> Any:
     """Archive or hard-delete a memory."""
+    _reject_public_generic_identity_tool()
     return _client.request(
         "DELETE",
         f"/v1/memories/{memory_id}",
@@ -528,12 +598,14 @@ def memoryos_delete_memory(memory_id: str, hard_delete: bool = False) -> Any:
 @mcp.tool()
 def memoryos_get_memory_history(memory_id: str) -> Any:
     """Fetch append-only version history for a memory."""
+    _reject_public_generic_identity_tool()
     return _client.request("GET", f"/v1/memories/{memory_id}/history")
 
 
 @mcp.tool()
 def memoryos_get_job_status(job_id: str) -> Any:
     """Fetch extraction job status."""
+    _reject_public_generic_identity_tool()
     return _client.request("GET", f"/v1/memories/jobs/{job_id}")
 
 
@@ -566,6 +638,7 @@ def memoryos_block_user(external_user_id: str) -> Any:
 @mcp.tool()
 def memoryos_get_edtech_profile(external_user_id: str) -> Any:
     """Fetch the structured EdTech profile for a user when the EdTech schema is enabled."""
+    _reject_public_generic_identity_tool()
     return _client.request(
         "GET",
         "/v1/memories/edtech-profile",
@@ -794,6 +867,8 @@ def memoryos_api_request(
 ) -> Any:
     """Advanced allowlisted MemoryOS API request for endpoints not yet promoted
     to first-class MCP tools."""
+    if _mcp_exposure() == "public":
+        raise PermissionError("Raw API requests are unavailable through public MemoryOS MCP.")
     if not _is_allowed_raw_path(path):
         raise ValueError(f"Path is not allowlisted for MCP raw requests: {path}")
     normalized_method = _normalize_raw_method(method)
