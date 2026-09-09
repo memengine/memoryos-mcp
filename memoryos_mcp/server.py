@@ -39,11 +39,9 @@ LOGGER = logging.getLogger(SERVER_NAME)
 # their distinct authorisation lanes have been implemented and tested.
 PUBLIC_TENANT_REQUESTS = frozenset(
     {
-        ("GET", "/v1/memories"),
-        ("POST", "/v1/memories/add"),
-        ("POST", "/v1/memories/retrieve"),
         ("POST", "/v1/mcp/tenant/remember"),
         ("POST", "/v1/mcp/tenant/context"),
+        ("POST", "/v1/mcp/tenant/session-context"),
         ("GET", "/v1/mcp/tenant/memories"),
         ("GET", "/v1/billing/plans"),
         ("GET", "/v1/billing/subscription"),
@@ -527,7 +525,7 @@ def memoryos_my_context(
     format: str = "bullets",
     context_max_tokens: int = 500,
 ) -> Any:
-    """Get prompt-ready MemoryOS context for the signed-in user before answering."""
+    """Get targeted prompt-ready MemoryOS context for the signed-in user."""
     return _client.request(
         "POST",
         "/v1/mcp/tenant/context",
@@ -538,6 +536,16 @@ def memoryos_my_context(
             "format": format,
             "context_max_tokens": context_max_tokens,
         },
+    )
+
+
+@mcp.tool()
+def memoryos_session_context(context_max_tokens: int = 180) -> Any:
+    """Load one compact self-scoped memory capsule at the start of a chat session."""
+    return _client.request(
+        "POST",
+        "/v1/mcp/tenant/session-context",
+        json_body={"context_max_tokens": context_max_tokens},
     )
 
 

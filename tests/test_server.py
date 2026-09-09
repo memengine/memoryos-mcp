@@ -22,6 +22,7 @@ from memoryos_mcp.server import memoryos_get_context
 from memoryos_mcp.server import memoryos_my_context
 from memoryos_mcp.server import memoryos_my_memories
 from memoryos_mcp.server import memoryos_remember
+from memoryos_mcp.server import memoryos_session_context
 from memoryos_mcp.server import memoryos_universal_add_memory
 from memoryos_mcp.server import memoryos_api_request
 from memoryos_mcp.server import memoryos_mcp_healthz
@@ -42,6 +43,7 @@ class MemoryOSToolRegistrationTests(unittest.TestCase):
         self.assertIn("memoryos_my_context", names)
         self.assertIn("memoryos_my_memories", names)
         self.assertIn("memoryos_remember", names)
+        self.assertIn("memoryos_session_context", names)
         self.assertIn("memoryos_delete_memory", names)
         self.assertIn("memoryos_get_billing_subscription", names)
         self.assertIn("memoryos_api_request", names)
@@ -132,11 +134,14 @@ class MemoryOSLocalLogicTests(unittest.TestCase):
             memoryos_my_context(query="What do I prefer?")
             memoryos_my_memories(limit=3)
             memoryos_remember(messages=[{"role": "user", "content": "Remember this."}])
+            memoryos_session_context()
 
         calls = request.call_args_list
         self.assertEqual(calls[0].args[:2], ("POST", "/v1/mcp/tenant/context"))
         self.assertEqual(calls[1].args[:2], ("GET", "/v1/mcp/tenant/memories"))
         self.assertEqual(calls[2].args[:2], ("POST", "/v1/mcp/tenant/remember"))
+        self.assertEqual(calls[3].args[:2], ("POST", "/v1/mcp/tenant/session-context"))
+        self.assertEqual(calls[3].kwargs["json_body"], {"context_max_tokens": 180})
         for call in calls:
             self.assertNotIn("external_user_id", call.kwargs.get("json_body", {}))
             self.assertNotIn("external_user_id", call.kwargs.get("params", {}))
@@ -222,7 +227,7 @@ class MemoryOSLocalLogicTests(unittest.TestCase):
             "fastmcp.server.dependencies.get_access_token",
             return_value=SimpleNamespace(token="clerk-access-token"),
         ):
-            client.request("POST", "/v1/memories/retrieve", json_body={"query": "hello"})
+            client.request("POST", "/v1/mcp/tenant/session-context", json_body={})
 
         self.assertEqual(seen_headers["authorization"], "Bearer clerk-access-token")
         self.assertEqual(seen_headers["x-memoryos-mcp-client"], "public-v1")
@@ -244,6 +249,20 @@ class MemoryOSLocalLogicTests(unittest.TestCase):
                 client.request("POST", "/v1/universal/memories/add", api_key="agent-key")
             with self.assertRaisesRegex(PermissionError, "does not accept caller-supplied credentials"):
                 client.universal_credentials("agent-key", "uui-token")
+
+    def test_public_mcp_rejects_legacy_generic_memory_routes(self) -> None:
+        client = MemoryOSClient()
+        self.addCleanup(client.close)
+        with patch.dict(
+            os.environ,
+            {"MEMORYOS_MCP_EXPOSURE": "public"},
+            clear=True,
+        ), patch(
+            "fastmcp.server.dependencies.get_access_token",
+            return_value=SimpleNamespace(token="clerk-access-token"),
+        ):
+            with self.assertRaisesRegex(PermissionError, "unavailable through public"):
+                client.request("POST", "/v1/memories/retrieve", json_body={"query": "hello"})
 
     def test_public_universal_call_exchanges_clerk_identity_for_capability(self) -> None:
         client = MemoryOSClient()
