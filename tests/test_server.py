@@ -25,6 +25,7 @@ from memoryos_mcp.server import memoryos_remember
 from memoryos_mcp.server import memoryos_universal_add_memory
 from memoryos_mcp.server import memoryos_api_request
 from memoryos_mcp.server import memoryos_mcp_healthz
+from memoryos_mcp.server import memoryos_update_memory
 
 
 class MemoryOSToolRegistrationTests(unittest.TestCase):
@@ -388,6 +389,103 @@ class MemoryOSHttpTransportTests(unittest.TestCase):
         self.assertEqual(
             json.loads(response.body),
             {"status": "ok", "server": "memoryos-mcp", "version": "0.4.0"},
+        )
+
+
+class MemoryOSSingleSourceVersionTests(unittest.TestCase):
+    """Version must come from one source so reporting never drifts."""
+
+    def test_server_version_tracks_package_version(self) -> None:
+        import memoryos_mcp
+        from memoryos_mcp.server import SERVER_VERSION
+
+        self.assertEqual(SERVER_VERSION, memoryos_mcp.__version__)
+        self.assertEqual(SERVER_VERSION, "0.4.0")
+
+    def test_health_version_matches_package_version(self) -> None:
+        import memoryos_mcp
+
+        health = json.loads(asyncio.run(memoryos_mcp_healthz(None)).body)
+        self.assertEqual(health["version"], memoryos_mcp.__version__)
+
+
+class MemoryOSToolContractTests(unittest.TestCase):
+    """Pin request contracts for tools not previously exercised."""
+
+    def test_update_memory_only_forwards_populated_fields(self) -> None:
+        with patch("memoryos_mcp.server._client.request", return_value={"ok": True}) as request:
+            memoryos_update_memory("mem_1", content="edited", is_archived=True)
+
+        self.assertEqual(
+            request.call_args.kwargs["json_body"],
+            {"content": "edited", "is_archived": True},
+        )
+
+    def test_update_memory_with_no_fields_sends_empty_body(self) -> None:
+        from memoryos_mcp.server import memoryos_update_memory
+
+        with patch("memoryos_mcp.server._client.request", return_value={"ok": True}) as request:
+            memoryos_update_memory("mem_1")
+
+        self.assertEqual(request.call_args.kwargs["json_body"], {})
+
+    def test_list_memories_forwards_cursor_and_categories(self) -> None:
+        from memoryos_mcp.server import memoryos_list_memories
+
+        with patch("memoryos_mcp.server._client.request", return_value={"data": []}) as request:
+            memoryos_list_memories(
+                external_user_id="customer-123",
+                cursor="next-page",
+                limit=5,
+                categories=["general", "work"],
+            )
+
+        self.assertEqual(
+            request.call_args.kwargs["params"],
+            {"external_user_id": "customer-123", "limit": 5, "cursor": "next-page", "categories": ["general", "work"]},
+        )
+
+    def test_set_support_type_forwards_configured_mode(self) -> None:
+        from memoryos_mcp.server import memoryos_set_support_type
+
+        with patch("memoryos_mcp.server._client.request", return_value={"ok": True}) as request:
+            memoryos_set_support_type(
+                support_type_mode="picklist",
+                support_types_allowed=["bug", "question"],
+            )
+
+        self.assertEqual(request.call_args.args[:2], ("PATCH", "/v1/tenant/support-type"))
+        self.assertEqual(
+            request.call_args.kwargs["json_body"],
+            {"support_type_mode": "picklist", "support_type": None, "support_types_allowed": ["bug", "question"]},
+        )
+
+    def test_set_domain_schema_sends_patch_json(self) -> None:
+        from memoryos_mcp.server import memoryos_set_domain_schema
+
+        with patch("memoryos_mcp.server._client.request", return_value={"ok": True}) as request:
+            memoryos_set_domain_schema("edtech")
+
+        self.assertEqual(request.call_args.args[:2], ("PATCH", "/v1/tenant/domain-schema"))
+        self.assertEqual(request.call_args.kwargs["json_body"], {"domain_schema": "edtech"})
+
+    def test_get_domain_schema_reads_tenant_setting(self) -> None:
+        from memoryos_mcp.server import memoryos_get_domain_schema
+
+        with patch("memoryos_mcp.server._client.request", return_value={"domain_schema": "support"}) as request:
+            memoryos_get_domain_schema()
+
+        self.assertEqual(request.call_args.args[:2], ("GET", "/v1/tenant/domain-schema"))
+
+    def test_list_support_customers_forwards_cursor(self) -> None:
+        from memoryos_mcp.server import memoryos_list_support_customers
+
+        with patch("memoryos_mcp.server._client.request", return_value={"data": []}) as request:
+            memoryos_list_support_customers(cursor="pg-2", limit=25)
+
+        self.assertEqual(
+            request.call_args.kwargs["params"],
+            {"limit": 25, "cursor": "pg-2"},
         )
 
 
