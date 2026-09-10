@@ -15,8 +15,10 @@ from starlette.requests import Request
 from starlette.responses import JSONResponse
 from starlette.responses import Response
 
+from memoryos_mcp import __version__
+
 SERVER_NAME = "memoryos-mcp"
-SERVER_VERSION = "0.4.0"
+SERVER_VERSION = __version__
 DEFAULT_API_URL = "https://api.memoryo.dev"
 DEFAULT_CONSENT_URL = "https://consent.memoryo.dev"
 ALLOWED_RAW_PATH_PREFIXES = (
