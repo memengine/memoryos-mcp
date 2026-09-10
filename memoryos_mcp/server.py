@@ -43,6 +43,7 @@ PUBLIC_TENANT_REQUESTS = frozenset(
         ("POST", "/v1/mcp/tenant/context"),
         ("POST", "/v1/mcp/tenant/session-context"),
         ("GET", "/v1/mcp/tenant/memories"),
+        ("GET", "/v1/mcp/tenant/clarifications"),
         ("GET", "/v1/mcp/tenant/memories/{memory_id}/why"),
         ("POST", "/v1/mcp/tenant/memories/{memory_id}/correct"),
         ("DELETE", "/v1/mcp/tenant/memories/{memory_id}"),
@@ -135,6 +136,15 @@ def _public_tenant_request_allowed(method: str, path: str) -> bool:
             (method == "GET" and memory_path.endswith("/why"))
             or (method == "POST" and memory_path.endswith("/correct"))
             or (method == "DELETE" and "/" not in memory_path)
+        )
+    if path.startswith("/v1/mcp/tenant/clarifications/"):
+        clarification_path = path.removeprefix("/v1/mcp/tenant/clarifications/")
+        clarification_id = clarification_path.removesuffix("/answer")
+        return (
+            method == "POST"
+            and clarification_path.endswith("/answer")
+            and bool(clarification_id)
+            and "/" not in clarification_id
         )
     # The detail, history, list, and job-status reads are tenant-isolated by
     # the API. No tenant, user, or organisation identifier is accepted here.
@@ -594,6 +604,29 @@ def memoryos_correct_memory(memory_id: str, content: str) -> Any:
 def memoryos_forget_memory(memory_id: str) -> Any:
     """Recoverably archive a self-owned memory for the signed-in user."""
     return _client.request("DELETE", f"/v1/mcp/tenant/memories/{memory_id}")
+
+
+@mcp.tool()
+def memoryos_my_clarifications() -> Any:
+    """List unresolved A/B memory conflicts belonging only to the signed-in user."""
+    return _client.request("GET", "/v1/mcp/tenant/clarifications")
+
+
+@mcp.tool()
+def memoryos_answer_clarification(
+    clarification_id: str,
+    answer: str,
+    reason: str | None = None,
+) -> Any:
+    """Resolve a self-owned memory conflict after the user chooses A, B, both, or neither."""
+    body: dict[str, Any] = {"answer": answer}
+    if reason is not None:
+        body["reason"] = reason
+    return _client.request(
+        "POST",
+        f"/v1/mcp/tenant/clarifications/{clarification_id}/answer",
+        json_body=body,
+    )
 
 
 @mcp.tool()

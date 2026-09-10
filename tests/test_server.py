@@ -13,6 +13,7 @@ from memoryos_mcp.server import MemoryOSAPIError
 from memoryos_mcp.server import MemoryOSClient
 from memoryos_mcp.server import _build_mcp_auth
 from memoryos_mcp.server import _http_server_config
+from memoryos_mcp.server import _public_tenant_request_allowed
 from memoryos_mcp.server import main
 from memoryos_mcp.server import mcp
 from memoryos_mcp.server import memoryos_create_consent_url
@@ -26,6 +27,8 @@ from memoryos_mcp.server import memoryos_session_context
 from memoryos_mcp.server import memoryos_why_memory
 from memoryos_mcp.server import memoryos_correct_memory
 from memoryos_mcp.server import memoryos_forget_memory
+from memoryos_mcp.server import memoryos_my_clarifications
+from memoryos_mcp.server import memoryos_answer_clarification
 from memoryos_mcp.server import memoryos_universal_add_memory
 from memoryos_mcp.server import memoryos_api_request
 from memoryos_mcp.server import memoryos_mcp_healthz
@@ -50,6 +53,8 @@ class MemoryOSToolRegistrationTests(unittest.TestCase):
         self.assertIn("memoryos_why_memory", names)
         self.assertIn("memoryos_correct_memory", names)
         self.assertIn("memoryos_forget_memory", names)
+        self.assertIn("memoryos_my_clarifications", names)
+        self.assertIn("memoryos_answer_clarification", names)
         self.assertIn("memoryos_delete_memory", names)
         self.assertIn("memoryos_get_billing_subscription", names)
         self.assertIn("memoryos_api_request", names)
@@ -144,6 +149,8 @@ class MemoryOSLocalLogicTests(unittest.TestCase):
             memoryos_why_memory("memory-1")
             memoryos_correct_memory("memory-1", "Corrected preference")
             memoryos_forget_memory("memory-1")
+            memoryos_my_clarifications()
+            memoryos_answer_clarification("clarification-1", "A")
 
         calls = request.call_args_list
         self.assertEqual(calls[0].args[:2], ("POST", "/v1/mcp/tenant/context"))
@@ -154,6 +161,12 @@ class MemoryOSLocalLogicTests(unittest.TestCase):
         self.assertEqual(calls[4].args[:2], ("GET", "/v1/mcp/tenant/memories/memory-1/why"))
         self.assertEqual(calls[5].args[:2], ("POST", "/v1/mcp/tenant/memories/memory-1/correct"))
         self.assertEqual(calls[6].args[:2], ("DELETE", "/v1/mcp/tenant/memories/memory-1"))
+        self.assertEqual(calls[7].args[:2], ("GET", "/v1/mcp/tenant/clarifications"))
+        self.assertEqual(
+            calls[8].args[:2],
+            ("POST", "/v1/mcp/tenant/clarifications/clarification-1/answer"),
+        )
+        self.assertEqual(calls[8].kwargs["json_body"], {"answer": "A"})
         for call in calls:
             self.assertNotIn("external_user_id", call.kwargs.get("json_body", {}))
             self.assertNotIn("external_user_id", call.kwargs.get("params", {}))
@@ -275,6 +288,27 @@ class MemoryOSLocalLogicTests(unittest.TestCase):
         ):
             with self.assertRaisesRegex(PermissionError, "unavailable through public"):
                 client.request("POST", "/v1/memories/retrieve", json_body={"query": "hello"})
+
+    def test_public_clarification_route_allows_only_one_answer_target(self) -> None:
+        self.assertTrue(_public_tenant_request_allowed("GET", "/v1/mcp/tenant/clarifications"))
+        self.assertTrue(
+            _public_tenant_request_allowed(
+                "POST",
+                "/v1/mcp/tenant/clarifications/clarification-1/answer",
+            )
+        )
+        self.assertFalse(
+            _public_tenant_request_allowed(
+                "POST",
+                "/v1/mcp/tenant/clarifications/one/two/answer",
+            )
+        )
+        self.assertFalse(
+            _public_tenant_request_allowed(
+                "GET",
+                "/v1/mcp/tenant/clarifications/clarification-1/answer",
+            )
+        )
 
     def test_public_universal_call_exchanges_clerk_identity_for_capability(self) -> None:
         client = MemoryOSClient()

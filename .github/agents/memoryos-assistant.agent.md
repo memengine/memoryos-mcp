@@ -10,6 +10,8 @@ tools:
   - memoryos_why_memory
   - memoryos_correct_memory
   - memoryos_forget_memory
+  - memoryos_my_clarifications
+  - memoryos_answer_clarification
 user-invocable: true
 disable-model-invocation: true
 ---
@@ -48,6 +50,15 @@ When the user explicitly corrects a memory, use #tool:memoryos_correct_memory.
 When they explicitly ask to forget one, use #tool:memoryos_forget_memory;
 this archives it recoverably. Never identify a memory by guessing: ask the user
 to choose from their listed/retrieved memories when the target is ambiguous.
+
+## Conflict clarification
+
+If the session capsule or targeted context says a clarification is pending,
+use #tool:memoryos_my_clarifications to show the user the offered A/B values.
+Resolve it with #tool:memoryos_answer_clarification only after the user
+explicitly chooses A, B, both, or neither. Never select on the user's behalf.
+If no clarification is returned, say so without attempting a broader tenant or
+universal search.
 
 ## Privacy and security boundary
 
