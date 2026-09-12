@@ -21,6 +21,7 @@ from memoryos_mcp.server import memoryos_add_memory
 from memoryos_mcp.server import memoryos_get_billing_subscription
 from memoryos_mcp.server import memoryos_get_context
 from memoryos_mcp.server import memoryos_my_context
+from memoryos_mcp.server import memoryos_my_job_status
 from memoryos_mcp.server import memoryos_my_memories
 from memoryos_mcp.server import memoryos_remember
 from memoryos_mcp.server import memoryos_session_context
@@ -47,6 +48,7 @@ class MemoryOSToolRegistrationTests(unittest.TestCase):
         self.assertIn("memoryos_get_context", names)
         self.assertIn("memoryos_list_memories", names)
         self.assertIn("memoryos_my_context", names)
+        self.assertIn("memoryos_my_job_status", names)
         self.assertIn("memoryos_my_memories", names)
         self.assertIn("memoryos_remember", names)
         self.assertIn("memoryos_session_context", names)
@@ -164,6 +166,15 @@ class MemoryOSLocalLogicTests(unittest.TestCase):
         self.assertIn("conversation_id", schemas["memoryos_add_memory"]["properties"])
         self.assertIn("conversation_id", schemas["memoryos_remember"]["properties"])
 
+    def test_my_job_status_uses_the_self_scoped_route(self) -> None:
+        with patch("memoryos_mcp.server._client.request", return_value={"data": {}}) as request:
+            memoryos_my_job_status("27237b90-00fd-43e4-8b5a-713b439466f8")
+
+        self.assertEqual(
+            request.call_args.args[:2],
+            ("GET", "/v1/mcp/tenant/jobs/27237b90-00fd-43e4-8b5a-713b439466f8"),
+        )
+
     def test_get_context_forwards_timezone_aware_as_of(self) -> None:
         with patch("memoryos_mcp.server._client.request", return_value={"data": []}) as request:
             memoryos_get_context(
@@ -177,6 +188,7 @@ class MemoryOSLocalLogicTests(unittest.TestCase):
     def test_self_scoped_tools_never_accept_external_user_id(self) -> None:
         with patch("memoryos_mcp.server._client.request", return_value={"data": []}) as request:
             memoryos_my_context(query="What do I prefer?")
+            memoryos_my_job_status("job-1")
             memoryos_my_memories(limit=3)
             memoryos_remember(messages=[{"role": "user", "content": "Remember this."}])
             memoryos_session_context()
@@ -188,19 +200,20 @@ class MemoryOSLocalLogicTests(unittest.TestCase):
 
         calls = request.call_args_list
         self.assertEqual(calls[0].args[:2], ("POST", "/v1/mcp/tenant/context"))
-        self.assertEqual(calls[1].args[:2], ("GET", "/v1/mcp/tenant/memories"))
-        self.assertEqual(calls[2].args[:2], ("POST", "/v1/mcp/tenant/remember"))
-        self.assertEqual(calls[3].args[:2], ("POST", "/v1/mcp/tenant/session-context"))
-        self.assertEqual(calls[3].kwargs["json_body"], {"context_max_tokens": 180})
-        self.assertEqual(calls[4].args[:2], ("GET", "/v1/mcp/tenant/memories/memory-1/why"))
-        self.assertEqual(calls[5].args[:2], ("POST", "/v1/mcp/tenant/memories/memory-1/correct"))
-        self.assertEqual(calls[6].args[:2], ("DELETE", "/v1/mcp/tenant/memories/memory-1"))
-        self.assertEqual(calls[7].args[:2], ("GET", "/v1/mcp/tenant/clarifications"))
+        self.assertEqual(calls[1].args[:2], ("GET", "/v1/mcp/tenant/jobs/job-1"))
+        self.assertEqual(calls[2].args[:2], ("GET", "/v1/mcp/tenant/memories"))
+        self.assertEqual(calls[3].args[:2], ("POST", "/v1/mcp/tenant/remember"))
+        self.assertEqual(calls[4].args[:2], ("POST", "/v1/mcp/tenant/session-context"))
+        self.assertEqual(calls[4].kwargs["json_body"], {"context_max_tokens": 180})
+        self.assertEqual(calls[5].args[:2], ("GET", "/v1/mcp/tenant/memories/memory-1/why"))
+        self.assertEqual(calls[6].args[:2], ("POST", "/v1/mcp/tenant/memories/memory-1/correct"))
+        self.assertEqual(calls[7].args[:2], ("DELETE", "/v1/mcp/tenant/memories/memory-1"))
+        self.assertEqual(calls[8].args[:2], ("GET", "/v1/mcp/tenant/clarifications"))
         self.assertEqual(
-            calls[8].args[:2],
+            calls[9].args[:2],
             ("POST", "/v1/mcp/tenant/clarifications/clarification-1/answer"),
         )
-        self.assertEqual(calls[8].kwargs["json_body"], {"answer": "A"})
+        self.assertEqual(calls[9].kwargs["json_body"], {"answer": "A"})
         for call in calls:
             self.assertNotIn("external_user_id", call.kwargs.get("json_body", {}))
             self.assertNotIn("external_user_id", call.kwargs.get("params", {}))

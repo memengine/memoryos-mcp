@@ -585,6 +585,16 @@ def memoryos_my_context(
 
 
 @mcp.tool()
+def memoryos_my_job_status(job_id: str) -> Any:
+    """Fetch a queued extraction job only when it belongs to the signed-in user.
+
+    Use the job ID returned by ``memoryos_remember``. The backend verifies both
+    the tenant and the server-derived user profile before returning status.
+    """
+    return _client.request("GET", f"/v1/mcp/tenant/jobs/{job_id}")
+
+
+@mcp.tool()
 def memoryos_session_context(context_max_tokens: int = 180) -> Any:
     """Load one compact self-scoped memory capsule at the start of a chat session."""
     return _client.request(
