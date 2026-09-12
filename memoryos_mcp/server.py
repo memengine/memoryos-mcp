@@ -445,17 +445,25 @@ def memoryos_add_memory(
     agent_id: str | None = None,
     metadata: dict | None = None,
     idempotency_key: str | None = None,
+    conversation_id: str | None = None,
 ) -> Any:
-    """Queue tenant-scoped conversation messages for MemoryOS extraction.
-    Uses the workspace's configured general or domain schema."""
+    """Queue MCP-asserted conversation evidence for governed extraction.
+
+    Standalone MCP evidence is deliberately capped at client-assertion
+    authority. Full user-confirmed authority requires MemoryOS-issued evidence
+    IDs through the authenticated ingestion API.
+    """
     _reject_public_generic_identity_tool()
     body: dict[str, Any] = {
         "external_user_id": external_user_id,
         "messages": messages,
         "metadata": metadata or {},
+        "evidence_mode": "client_assertion",
     }
     if agent_id is not None:
         body["agent_id"] = agent_id
+    if conversation_id is not None:
+        body["conversation_id"] = conversation_id
     return _client.request(
         "POST",
         "/v1/memories/add",
@@ -527,12 +535,17 @@ def memoryos_remember(
     messages: list[dict],
     metadata: dict | None = None,
     idempotency_key: str | None = None,
+    conversation_id: str | None = None,
 ) -> Any:
     """Remember this conversation for the signed-in user, without requiring a user ID."""
     return _client.request(
         "POST",
         "/v1/mcp/tenant/remember",
-        json_body={"messages": messages, "metadata": metadata or {}},
+        json_body={
+            "messages": messages,
+            "metadata": metadata or {},
+            **({"conversation_id": conversation_id} if conversation_id is not None else {}),
+        },
         idempotency_key=idempotency_key,
     )
 

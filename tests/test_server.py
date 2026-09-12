@@ -129,6 +129,19 @@ class MemoryOSLocalLogicTests(unittest.TestCase):
         kwargs = request.call_args.kwargs
         self.assertEqual(kwargs["idempotency_key"], "event-123")
         self.assertNotIn("idempotency_key", kwargs["json_body"])
+        self.assertEqual(kwargs["json_body"]["evidence_mode"], "client_assertion")
+
+    def test_add_memory_forwards_external_conversation_reference(self) -> None:
+        with patch("memoryos_mcp.server._client.request", return_value={"status": "queued"}) as request:
+            memoryos_add_memory(
+                external_user_id="customer-123",
+                messages=[{"role": "user", "content": "Use TypeScript."}],
+                conversation_id="conversation-123",
+            )
+
+        body = request.call_args.kwargs["json_body"]
+        self.assertEqual(body["conversation_id"], "conversation-123")
+        self.assertEqual(body["evidence_mode"], "client_assertion")
 
     def test_get_context_forwards_timezone_aware_as_of(self) -> None:
         with patch("memoryos_mcp.server._client.request", return_value={"data": []}) as request:
