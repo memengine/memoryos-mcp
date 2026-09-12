@@ -143,6 +143,27 @@ class MemoryOSLocalLogicTests(unittest.TestCase):
         self.assertEqual(body["conversation_id"], "conversation-123")
         self.assertEqual(body["evidence_mode"], "client_assertion")
 
+    def test_remember_forwards_conversation_reference_without_user_identity(self) -> None:
+        with patch("memoryos_mcp.server._client.request", return_value={"status": "queued"}) as request:
+            memoryos_remember(
+                messages=[{"role": "user", "content": "Use short incident summaries."}],
+                conversation_id="vscode-chat-2026-09-12-01",
+            )
+
+        self.assertEqual(request.call_args.args[:2], ("POST", "/v1/mcp/tenant/remember"))
+        self.assertEqual(
+            request.call_args.kwargs["json_body"]["conversation_id"],
+            "vscode-chat-2026-09-12-01",
+        )
+        self.assertNotIn("external_user_id", request.call_args.kwargs["json_body"])
+
+    def test_memory_tools_expose_conversation_reference_in_client_schema(self) -> None:
+        tools = asyncio.run(mcp._local_provider.list_tools())
+        schemas = {tool.name: tool.parameters for tool in tools}
+
+        self.assertIn("conversation_id", schemas["memoryos_add_memory"]["properties"])
+        self.assertIn("conversation_id", schemas["memoryos_remember"]["properties"])
+
     def test_get_context_forwards_timezone_aware_as_of(self) -> None:
         with patch("memoryos_mcp.server._client.request", return_value={"data": []}) as request:
             memoryos_get_context(

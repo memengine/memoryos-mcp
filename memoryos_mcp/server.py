@@ -451,7 +451,9 @@ def memoryos_add_memory(
 
     Standalone MCP evidence is deliberately capped at client-assertion
     authority. Full user-confirmed authority requires MemoryOS-issued evidence
-    IDs through the authenticated ingestion API.
+    IDs through the authenticated ingestion API. ``conversation_id`` is an
+    optional stable, opaque caller reference retained in memory provenance for
+    audit; it does not increase the assertion's authority.
     """
     _reject_public_generic_identity_tool()
     body: dict[str, Any] = {
@@ -515,7 +517,12 @@ def memoryos_list_memories(
     categories: list[str] | None = None,
     agent_id: str | None = None,
 ) -> Any:
-    """List tenant-scoped memories for a user."""
+    """List tenant-scoped memories for a user, including provenance when available.
+
+    MCP-originated records remain ``client_asserted``. When supplied at write
+    time, the caller's ``conversation_id`` is returned as
+    ``provenance.external_conversation_id`` after processing completes.
+    """
     _reject_public_generic_identity_tool()
     params: dict[str, Any] = {
         "external_user_id": external_user_id,
@@ -537,7 +544,12 @@ def memoryos_remember(
     idempotency_key: str | None = None,
     conversation_id: str | None = None,
 ) -> Any:
-    """Remember this conversation for the signed-in user, without requiring a user ID."""
+    """Remember MCP-asserted conversation evidence for the signed-in user.
+
+    This self-scoped path never accepts a user ID. ``conversation_id`` is an
+    optional stable, opaque caller reference retained in memory provenance for
+    audit; it does not grant higher evidence authority.
+    """
     return _client.request(
         "POST",
         "/v1/mcp/tenant/remember",
