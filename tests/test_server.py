@@ -166,6 +166,7 @@ class MemoryOSLocalLogicTests(unittest.TestCase):
             "vscode-chat-2026-09-12-01",
         )
         self.assertNotIn("external_user_id", request.call_args.kwargs["json_body"])
+        self.assertNotIn("metadata", request.call_args.kwargs["json_body"])
 
     def test_memory_tools_expose_conversation_reference_in_client_schema(self) -> None:
         tools = asyncio.run(mcp._local_provider.list_tools())
@@ -173,6 +174,7 @@ class MemoryOSLocalLogicTests(unittest.TestCase):
 
         self.assertIn("conversation_id", schemas["memoryos_add_memory"]["properties"])
         self.assertIn("conversation_id", schemas["memoryos_remember"]["properties"])
+        self.assertNotIn("metadata", schemas["memoryos_remember"]["properties"])
 
     def test_my_job_status_uses_the_self_scoped_route(self) -> None:
         with patch("memoryos_mcp.server._client.request", return_value={"data": {}}) as request:

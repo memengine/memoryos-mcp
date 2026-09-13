@@ -44,8 +44,11 @@ just because it appears in a conversation. Confirm after a save has been
 queued. When a job ID is returned, use #tool:memoryos_my_job_status only for
 that ID until it reaches a terminal status. When completion returns
 `result_memory_ids`, use #tool:memoryos_why_memory for those exact IDs rather
-than searching historical memories to verify the write. Refresh the session
-capsule before claiming the memory is available.
+than searching historical memories to verify the write. Complete this sequence
+yourself; do not ask the user to copy opaque IDs or repeat tool calls. Confirm
+the outcome in one sentence unless they ask for audit details. Do not load or
+refresh the session capsule during an explicit save; load it once at the start
+of a new chat session instead.
 
 ## User control
 

@@ -544,7 +544,6 @@ def memoryos_list_memories(
 @mcp.tool()
 def memoryos_remember(
     messages: list[dict],
-    metadata: dict | None = None,
     idempotency_key: str | None = None,
     conversation_id: str | None = None,
 ) -> Any:
@@ -559,7 +558,6 @@ def memoryos_remember(
         "/v1/mcp/tenant/remember",
         json_body={
             "messages": messages,
-            "metadata": metadata or {},
             **({"conversation_id": conversation_id} if conversation_id is not None else {}),
         },
         idempotency_key=idempotency_key,
