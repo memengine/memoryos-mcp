@@ -337,6 +337,14 @@ class MemoryOSLocalLogicTests(unittest.TestCase):
                 client.request("POST", "/v1/memories/retrieve", json_body={"query": "hello"})
 
     def test_public_clarification_route_allows_only_one_answer_target(self) -> None:
+        self.assertTrue(
+            _public_tenant_request_allowed(
+                "GET",
+                "/v1/mcp/tenant/jobs/27237b90-00fd-43e4-8b5a-713b439466f8",
+            )
+        )
+        self.assertFalse(_public_tenant_request_allowed("POST", "/v1/mcp/tenant/jobs/job-1"))
+        self.assertFalse(_public_tenant_request_allowed("GET", "/v1/mcp/tenant/jobs/one/two"))
         self.assertTrue(_public_tenant_request_allowed("GET", "/v1/mcp/tenant/clarifications"))
         self.assertTrue(
             _public_tenant_request_allowed(

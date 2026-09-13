@@ -42,6 +42,7 @@ PUBLIC_TENANT_REQUESTS = frozenset(
         ("POST", "/v1/mcp/tenant/remember"),
         ("POST", "/v1/mcp/tenant/context"),
         ("POST", "/v1/mcp/tenant/session-context"),
+        ("GET", "/v1/mcp/tenant/jobs/{job_id}"),
         ("GET", "/v1/mcp/tenant/memories"),
         ("GET", "/v1/mcp/tenant/clarifications"),
         ("GET", "/v1/mcp/tenant/memories/{memory_id}/why"),
@@ -130,6 +131,9 @@ def _public_tenant_request_allowed(method: str, path: str) -> bool:
     """Return whether a public MCP caller may invoke this tenant API route."""
     if (method, path) in PUBLIC_TENANT_REQUESTS:
         return True
+    if path.startswith("/v1/mcp/tenant/jobs/"):
+        job_id = path.removeprefix("/v1/mcp/tenant/jobs/")
+        return method == "GET" and bool(job_id) and "/" not in job_id
     if path.startswith("/v1/mcp/tenant/memories/"):
         memory_path = path.removeprefix("/v1/mcp/tenant/memories/")
         return bool(memory_path) and (
