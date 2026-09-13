@@ -181,6 +181,34 @@ class MemoryOSLocalLogicTests(unittest.TestCase):
             ("GET", "/v1/mcp/tenant/jobs/27237b90-00fd-43e4-8b5a-713b439466f8"),
         )
 
+    def test_my_memories_returns_compact_auditable_fields(self) -> None:
+        api_response = {
+            "data": [
+                {
+                    "id": "memory-1",
+                    "content": "Use a one-line diagnosis first.",
+                    "category": "preference",
+                    "created_at": "2026-09-13T05:00:00Z",
+                    "provenance": {
+                        "attestation": "client_asserted",
+                        "external_conversation_id": "release-check-001",
+                    },
+                    "metadata": {"large_internal_payload": "not returned"},
+                }
+            ],
+            "pagination": {"next_cursor": None, "limit": 10, "total": 1},
+            "request_id": "request-1",
+        }
+        with patch("memoryos_mcp.server._client.request", return_value=api_response):
+            result = memoryos_my_memories(limit=10)
+
+        self.assertEqual(result["data"][0]["id"], "memory-1")
+        self.assertEqual(
+            result["data"][0]["provenance"]["attestation"], "client_asserted"
+        )
+        self.assertNotIn("metadata", result["data"][0])
+        self.assertEqual(result["pagination"]["total"], 1)
+
     def test_get_context_forwards_timezone_aware_as_of(self) -> None:
         with patch("memoryos_mcp.server._client.request", return_value={"data": []}) as request:
             memoryos_get_context(

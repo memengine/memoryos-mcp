@@ -614,13 +614,46 @@ def memoryos_my_memories(
     limit: int = 10,
     categories: list[str] | None = None,
 ) -> Any:
-    """List memories belonging only to the signed-in user."""
+    """List a compact, provenance-preserving view of the signed-in user's memories.
+
+    The tenant API response also carries internal metadata that can make a small
+    memory list too large for MCP clients to display inline.  This tool is an
+    interactive audit surface, so return the identity, content, lifecycle, and
+    provenance fields needed to select a memory; ``memoryos_why_memory`` can
+    then explain one selected memory in detail.
+    """
     params: dict[str, Any] = {"limit": limit}
     if cursor is not None:
         params["cursor"] = cursor
     if categories:
         params["categories"] = categories
-    return _client.request("GET", "/v1/mcp/tenant/memories", params=params)
+    response = _client.request("GET", "/v1/mcp/tenant/memories", params=params)
+    if not isinstance(response, dict) or not isinstance(response.get("data"), list):
+        return response
+
+    fields = (
+        "id",
+        "content",
+        "category",
+        "importance_score",
+        "confidence_score",
+        "created_at",
+        "updated_at",
+        "is_archived",
+        "source_conversation_id",
+        "source_event_id",
+        "provenance",
+    )
+    compact = {
+        "data": [
+            {field: memory.get(field) for field in fields if field in memory}
+            for memory in response["data"]
+            if isinstance(memory, dict)
+        ]
+    }
+    if "pagination" in response:
+        compact["pagination"] = response["pagination"]
+    return compact
 
 
 @mcp.tool()
