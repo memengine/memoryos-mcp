@@ -192,6 +192,7 @@ class MemoryOSLocalLogicTests(unittest.TestCase):
                     "provenance": {
                         "attestation": "client_asserted",
                         "external_conversation_id": "release-check-001",
+                        "processing": {"large_internal_payload": "not returned"},
                     },
                     "metadata": {"large_internal_payload": "not returned"},
                 }
@@ -207,7 +208,18 @@ class MemoryOSLocalLogicTests(unittest.TestCase):
             result["data"][0]["provenance"]["attestation"], "client_asserted"
         )
         self.assertNotIn("metadata", result["data"][0])
+        self.assertNotIn("processing", result["data"][0]["provenance"])
         self.assertEqual(result["pagination"]["total"], 1)
+
+    def test_my_memories_bounds_oversized_content(self) -> None:
+        with patch(
+            "memoryos_mcp.server._client.request",
+            return_value={"data": [{"id": "memory-1", "content": "x" * 601}]},
+        ):
+            result = memoryos_my_memories(limit=1)
+
+        self.assertTrue(result["data"][0]["content_truncated"])
+        self.assertEqual(len(result["data"][0]["content"]), 601)
 
     def test_get_context_forwards_timezone_aware_as_of(self) -> None:
         with patch("memoryos_mcp.server._client.request", return_value={"data": []}) as request:
