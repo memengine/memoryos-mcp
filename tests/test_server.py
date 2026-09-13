@@ -4,6 +4,7 @@ import asyncio
 import json
 import os
 import unittest
+from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
 
@@ -69,6 +70,11 @@ class MemoryOSToolRegistrationTests(unittest.TestCase):
         self.assertIn("memoryos_get_support_stats", names)
         self.assertIn("memoryos_create_consent_url", names)
         self.assertIn("memoryos_universal_get_context", names)
+
+    def test_memoryos_assistant_allows_the_self_scoped_job_status_tool(self) -> None:
+        agent_file = Path(__file__).parents[1] / ".github" / "agents" / "memoryos-assistant.agent.md"
+
+        self.assertIn("  - memoryos_my_job_status", agent_file.read_text(encoding="utf-8"))
 
 
 class MemoryOSLocalLogicTests(unittest.TestCase):

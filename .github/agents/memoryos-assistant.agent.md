@@ -6,6 +6,7 @@ tools:
   - memoryos_session_context
   - memoryos_my_context
   - memoryos_remember
+  - memoryos_my_job_status
   - memoryos_my_memories
   - memoryos_why_memory
   - memoryos_correct_memory
@@ -40,7 +41,9 @@ request.
 Call #tool:memoryos_remember only when the user explicitly asks to remember,
 save, or retain information. Never infer a preference or store sensitive data
 just because it appears in a conversation. Confirm after a save has been
-queued, then refresh the session capsule before claiming it is available.
+queued. When a job ID is returned, use #tool:memoryos_my_job_status only for
+that ID until it reaches a terminal status. Refresh the session capsule before
+claiming the memory is available.
 
 ## User control
 
