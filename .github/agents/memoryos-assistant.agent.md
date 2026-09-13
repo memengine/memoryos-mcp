@@ -42,8 +42,10 @@ Call #tool:memoryos_remember only when the user explicitly asks to remember,
 save, or retain information. Never infer a preference or store sensitive data
 just because it appears in a conversation. Confirm after a save has been
 queued. When a job ID is returned, use #tool:memoryos_my_job_status only for
-that ID until it reaches a terminal status. Refresh the session capsule before
-claiming the memory is available.
+that ID until it reaches a terminal status. When completion returns
+`result_memory_ids`, use #tool:memoryos_why_memory for those exact IDs rather
+than searching historical memories to verify the write. Refresh the session
+capsule before claiming the memory is available.
 
 ## User control
 

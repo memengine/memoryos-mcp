@@ -74,7 +74,9 @@ class MemoryOSToolRegistrationTests(unittest.TestCase):
     def test_memoryos_assistant_allows_the_self_scoped_job_status_tool(self) -> None:
         agent_file = Path(__file__).parents[1] / ".github" / "agents" / "memoryos-assistant.agent.md"
 
-        self.assertIn("  - memoryos_my_job_status", agent_file.read_text(encoding="utf-8"))
+        content = agent_file.read_text(encoding="utf-8")
+        self.assertIn("  - memoryos_my_job_status", content)
+        self.assertIn("result_memory_ids", content)
 
 
 class MemoryOSLocalLogicTests(unittest.TestCase):
@@ -181,45 +183,32 @@ class MemoryOSLocalLogicTests(unittest.TestCase):
             ("GET", "/v1/mcp/tenant/jobs/27237b90-00fd-43e4-8b5a-713b439466f8"),
         )
 
-    def test_my_memories_returns_compact_auditable_fields(self) -> None:
+    def test_my_memories_forwards_the_backend_bounded_contract(self) -> None:
         api_response = {
             "data": [
                 {
                     "id": "memory-1",
-                    "content": "Use a one-line diagnosis first.",
+                    "content_preview": "Use a one-line diagnosis first.",
                     "category": "preference",
                     "created_at": "2026-09-13T05:00:00Z",
-                    "provenance": {
+                    "provenance_summary": {
                         "attestation": "client_asserted",
                         "external_conversation_id": "release-check-001",
-                        "processing": {"large_internal_payload": "not returned"},
                     },
-                    "metadata": {"large_internal_payload": "not returned"},
                 }
             ],
             "pagination": {"next_cursor": None, "limit": 10, "total": 1},
             "request_id": "request-1",
         }
-        with patch("memoryos_mcp.server._client.request", return_value=api_response):
+        with patch("memoryos_mcp.server._client.request", return_value=api_response) as request:
             result = memoryos_my_memories(limit=10)
 
         self.assertEqual(result["data"][0]["id"], "memory-1")
         self.assertEqual(
-            result["data"][0]["provenance"]["attestation"], "client_asserted"
+            result["data"][0]["provenance_summary"]["attestation"], "client_asserted"
         )
-        self.assertNotIn("metadata", result["data"][0])
-        self.assertNotIn("processing", result["data"][0]["provenance"])
         self.assertEqual(result["pagination"]["total"], 1)
-
-    def test_my_memories_bounds_oversized_content(self) -> None:
-        with patch(
-            "memoryos_mcp.server._client.request",
-            return_value={"data": [{"id": "memory-1", "content": "x" * 601}]},
-        ):
-            result = memoryos_my_memories(limit=1)
-
-        self.assertTrue(result["data"][0]["content_truncated"])
-        self.assertEqual(len(result["data"][0]["content"]), 601)
+        self.assertEqual(request.call_args.args[:2], ("GET", "/v1/mcp/tenant/memories"))
 
     def test_get_context_forwards_timezone_aware_as_of(self) -> None:
         with patch("memoryos_mcp.server._client.request", return_value={"data": []}) as request:

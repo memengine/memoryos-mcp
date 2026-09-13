@@ -32,19 +32,6 @@ HTTP_TRANSPORTS = frozenset({"http", "streamable-http", "sse"})
 MCP_EXPOSURES = frozenset({"private", "public"})
 AUTH_MODES = frozenset({"none", "clerk"})
 CLERK_TENANT_SCOPES = ["openid", "email", "profile", "user:org:read"]
-_MEMORY_LIST_CONTENT_MAX_CHARS = 600
-_MEMORY_LIST_PROVENANCE_FIELDS = (
-    "mode",
-    "attestation",
-    "authority_priority",
-    "external_conversation_id",
-    "source_event_id",
-    "event_id",
-    "service",
-    "writer_id",
-    "observed_at",
-    "received_at",
-)
 LOGGER = logging.getLogger(SERVER_NAME)
 
 # A public gateway intentionally starts with a small, capability-safe surface.
@@ -627,64 +614,18 @@ def memoryos_my_memories(
     limit: int = 10,
     categories: list[str] | None = None,
 ) -> Any:
-    """List a compact, provenance-preserving view of the signed-in user's memories.
-
-    The tenant API response also carries internal metadata that can make a small
-    memory list too large for MCP clients to display inline.  This tool is an
-    interactive audit surface, so return the identity, content, lifecycle, and
-    provenance fields needed to select a memory. Content is bounded and
-    provenance excludes extraction internals; ``memoryos_why_memory`` can
-    then explain one selected memory in detail.
-    """
+    """List a backend-bounded browse index for the signed-in user's memories."""
     params: dict[str, Any] = {"limit": limit}
     if cursor is not None:
         params["cursor"] = cursor
     if categories:
         params["categories"] = categories
-    response = _client.request("GET", "/v1/mcp/tenant/memories", params=params)
-    if not isinstance(response, dict) or not isinstance(response.get("data"), list):
-        return response
-
-    fields = (
-        "id",
-        "content",
-        "category",
-        "importance_score",
-        "confidence_score",
-        "created_at",
-        "updated_at",
-        "is_archived",
-        "source_conversation_id",
-        "source_event_id",
-        "provenance",
-    )
-    compact_memories: list[dict[str, Any]] = []
-    for memory in response["data"]:
-        if not isinstance(memory, dict):
-            continue
-        item = {field: memory.get(field) for field in fields if field in memory}
-        content = item.get("content")
-        if isinstance(content, str) and len(content) > _MEMORY_LIST_CONTENT_MAX_CHARS:
-            item["content"] = content[:_MEMORY_LIST_CONTENT_MAX_CHARS] + "…"
-            item["content_truncated"] = True
-        provenance = item.get("provenance")
-        if isinstance(provenance, dict):
-            item["provenance"] = {
-                field: provenance[field]
-                for field in _MEMORY_LIST_PROVENANCE_FIELDS
-                if field in provenance
-            }
-        compact_memories.append(item)
-
-    compact = {"data": compact_memories}
-    if "pagination" in response:
-        compact["pagination"] = response["pagination"]
-    return compact
+    return _client.request("GET", "/v1/mcp/tenant/memories", params=params)
 
 
 @mcp.tool()
 def memoryos_why_memory(memory_id: str) -> Any:
-    """Explain the self-owned memory's source and confidence for the signed-in user."""
+    """Explain one self-owned memory through the backend-bounded detail contract."""
     return _client.request("GET", f"/v1/mcp/tenant/memories/{memory_id}/why")
 
 
