@@ -4,7 +4,6 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "memoryo-mcp"
-version = "0.4.0"
 description = "Model Context Protocol server for governed MemoryOS context."
 readme = "README.md"
 license = "MIT"
@@ -13,6 +12,7 @@ authors = [
     { name = "MemoryO", email = "support@memoryo.dev" },
 ]
 requires-python = ">=3.11"
+dynamic = ["version"]
 keywords = ["ai", "agents", "memory", "governance", "mcp", "model-context-protocol"]
 classifiers = [
     "Development Status :: 3 - Alpha",
@@ -37,3 +37,6 @@ memoryo-mcp = "memoryos_mcp.server:main"
 
 [tool.setuptools.packages.find]
 include = ["memoryos_mcp*"]
+
+[tool.setuptools.dynamic]
+version = { attr = "memoryos_mcp.__version__" }

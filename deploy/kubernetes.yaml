@@ -14,7 +14,10 @@ spec:
     spec:
       containers:
         - name: memoryos-mcp
-          image: your-registry/memoryos-mcp:0.2.0
+          # Published by .github/workflows/publish-ghcr.yml as immutable sha-* tags:
+          # ghcr.io/memengine/memoryos-mcp:sha-<long-commit>. Replace the tag
+          # below with the sha of the image you intend to run.
+          image: ghcr.io/memengine/memoryos-mcp:sha-0000000000000000000000000000000000000000
           env:
             - name: MEMORYOS_API_URL
               value: https://api.memoryo.dev

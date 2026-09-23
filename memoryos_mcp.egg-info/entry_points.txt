@@ -1,2 +1,0 @@
-[console_scripts]
-memoryos-mcp = memoryos_mcp.server:main
